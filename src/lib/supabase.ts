@@ -65,30 +65,6 @@ export type Database = {
         Insert: Omit<Database['public']['Tables']['referrals']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['referrals']['Insert']>;
       };
-      credits: {
-        Row: {
-          id: string;
-          user_id: string;
-          amount: number;
-          source: 'purchase' | 'referral';
-          expires_at: string;
-          created_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['credits']['Row'], 'id' | 'created_at'>;
-        Update: Partial<Database['public']['Tables']['credits']['Insert']>;
-      };
-      credit_usage_history: {
-        Row: {
-          id: string;
-          user_id: string;
-          credits_used: number;
-          action: string;
-          remaining_credits: number;
-          created_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['credit_usage_history']['Row'], 'id' | 'created_at'>;
-        Update: Partial<Database['public']['Tables']['credit_usage_history']['Insert']>;
-      };
     };
   };
 };

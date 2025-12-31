@@ -6,19 +6,26 @@ export const PLANS = {
     accessories: [],
     features: ['30 imagens/mês', 'Geração básica', 'Suporte por email'],
   },
+  starter: {
+    name: 'Starter Model',
+    price: 19.90,
+    images: 15,
+    accessories: [],
+    features: ['15 imagens/mês', 'Geração básica', 'Suporte por email'],
+  },
   fashion: {
     name: 'Fashion Model',
     price: 69.90,
     images: 100,
     accessories: ['accessory1'],
-    features: ['100 imagens/mês', 'Acessório 1 ativado', 'Geração avançada', 'Suporte prioritário'],
+    features: ['100 imagens/mês', 'Acessório 1 ativado', 'Geração avançada', 'Suporte por email'],
   },
   super: {
     name: 'Super Model',
     price: 129.90,
     images: 250,
     accessories: ['accessory1', 'accessory2', 'accessory3'],
-    features: ['250 imagens/mês', 'Todos os acessórios', 'Geração premium', 'Suporte VIP'],
+    features: ['250 imagens/mês', 'Todos os acessórios', 'Geração premium', 'Suporte por email'],
   },
   master: {
     name: 'Master',
@@ -38,6 +45,9 @@ export const CLOTHING_TYPES = ['superior', 'inferior', 'conjunto'] as const;
 export type ClothingType = typeof CLOTHING_TYPES[number];
 
 export const WATERMARK_TEXT = 'Fashion.ai';
+
+// Email de suporte
+export const SUPPORT_EMAIL = 'suportefashionai@outlook.com';
 
 // Credenciais da conta MASTER
 export const MASTER_ACCOUNT = {

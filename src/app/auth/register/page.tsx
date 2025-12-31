@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Loader2, Sparkles, FileText, AlertCircle } from 'lucide-react';
+import { Loader2, Sparkles, FileText } from 'lucide-react';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -30,7 +30,7 @@ export default function RegisterPage() {
     e.preventDefault();
 
     if (!acceptedTerms) {
-      toast.error(t.termsNotAccepted);
+      toast.error('Você deve aceitar os Termos de Uso');
       return;
     }
 
@@ -138,97 +138,62 @@ export default function RegisterPage() {
               />
             </div>
 
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-3">
-              <div className="flex items-start space-x-3">
-                <Checkbox
-                  id="terms"
-                  checked={acceptedTerms}
-                  onCheckedChange={(checked) => setAcceptedTerms(checked as boolean)}
-                  className="mt-1 border-[#002f5c] data-[state=checked]:bg-[#002f5c]"
-                />
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="terms" className="text-sm leading-relaxed cursor-pointer text-gray-800 font-medium">
-                    {t.termsAccept}
-                  </Label>
+            <div className="flex items-start space-x-2 pt-2">
+              <Checkbox
+                id="terms"
+                checked={acceptedTerms}
+                onCheckedChange={(checked) => setAcceptedTerms(checked as boolean)}
+                className="mt-1"
+              />
+              <div className="flex-1">
+                <Label htmlFor="terms" className="text-sm leading-relaxed cursor-pointer">
+                  {t.termsAccept}{' '}
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button 
-                        type="button" 
-                        variant="outline"
-                        size="sm"
-                        className="w-full text-[#002f5c] border-[#002f5c] hover:bg-[#002f5c] hover:text-white"
-                      >
-                        <FileText className="w-4 h-4 mr-2" />
-                        {t.viewTerms}
-                      </Button>
+                      <button type="button" className="text-[#002f5c] hover:text-[#004080] font-semibold hover:underline inline-flex items-center">
+                        <FileText className="w-3 h-3 mr-1" />
+                        Ver termos
+                      </button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+                    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                       <DialogHeader>
-                        <DialogTitle className="text-2xl text-[#002f5c] flex items-center gap-2">
-                          <FileText className="w-6 h-6" />
-                          {t.termsTitle}
-                        </DialogTitle>
+                        <DialogTitle className="text-2xl text-[#002f5c]">{t.termsTitle}</DialogTitle>
                         <DialogDescription className="text-base">
-                          {t.termsIntro}
+                          Leia atentamente antes de aceitar
                         </DialogDescription>
                       </DialogHeader>
-                      
-                      <div className="space-y-6 text-sm text-gray-700 py-4">
-                        {/* Termo 1 - Uso de IA */}
-                        <div className="border-l-4 border-[#002f5c] pl-4 py-2">
-                          <h3 className="font-bold text-[#002f5c] mb-2 text-base">{t.term1Title}</h3>
-                          <p className="leading-relaxed">{t.term1}</p>
+                      <div className="space-y-4 text-sm text-gray-700">
+                        <div>
+                          <h3 className="font-semibold text-[#002f5c] mb-2">1. Aceitação dos Termos</h3>
+                          <p>{t.term1}</p>
                         </div>
-
-                        {/* Termo 2 - Responsabilidade do Usuário */}
-                        <div className="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r">
-                          <h3 className="font-bold text-red-700 mb-2 text-base flex items-center gap-2">
-                            <AlertCircle className="w-5 h-5" />
-                            {t.term2Title}
-                          </h3>
-                          <p className="leading-relaxed text-red-900">{t.term2}</p>
+                        <div>
+                          <h3 className="font-semibold text-[#002f5c] mb-2">2. Uso Pessoal</h3>
+                          <p>{t.term2}</p>
                         </div>
-
-                        {/* Termo 3 - Cancelamento */}
-                        <div className="border-l-4 border-[#002f5c] pl-4 py-2">
-                          <h3 className="font-bold text-[#002f5c] mb-2 text-base">{t.term3Title}</h3>
-                          <p className="leading-relaxed">{t.term3}</p>
+                        <div>
+                          <h3 className="font-semibold text-[#002f5c] mb-2">3. Privacidade</h3>
+                          <p>{t.term3}</p>
                         </div>
-
-                        {/* Termo 4 - APIs de Terceiros */}
-                        <div className="border-l-4 border-[#002f5c] pl-4 py-2">
-                          <h3 className="font-bold text-[#002f5c] mb-2 text-base">{t.term4Title}</h3>
-                          <p className="leading-relaxed">{t.term4}</p>
+                        <div>
+                          <h3 className="font-semibold text-[#002f5c] mb-2">4. Renovação Automática</h3>
+                          <p>Os planos de assinatura serão renovados automaticamente no cartão de crédito cadastrado, podendo ser cancelados manualmente a qualquer momento.</p>
                         </div>
-
-                        {/* Termo 5 - Privacidade */}
-                        <div className="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r">
-                          <h3 className="font-bold text-green-700 mb-2 text-base">{t.term5Title}</h3>
-                          <p className="leading-relaxed text-green-900">{t.term5}</p>
+                        <div>
+                          <h3 className="font-semibold text-[#002f5c] mb-2">5. Análise de Uso</h3>
+                          <p>O administrador do aplicativo terá acesso a dados de hierarquia de contas para garantir segurança e evitar abusos.</p>
                         </div>
-
-                        {/* Termo 6 - Aceitação */}
-                        <div className="border-l-4 border-[#002f5c] pl-4 py-2">
-                          <h3 className="font-bold text-[#002f5c] mb-2 text-base">{t.term6Title}</h3>
-                          <p className="leading-relaxed">{t.term6}</p>
-                        </div>
-                      </div>
-
-                      <div className="border-t pt-4 mt-4">
-                        <p className="text-xs text-gray-500 text-center">
-                          Fashion.ai © 2024 - Todos os direitos reservados
-                        </p>
                       </div>
                     </DialogContent>
                   </Dialog>
-                </div>
+                </Label>
               </div>
             </div>
 
             <Button
               type="submit"
               className="w-full bg-gradient-to-r from-[#002f5c] to-[#004080] hover:from-[#003d6b] hover:to-[#005099] text-white font-semibold py-6 transition-all duration-300 transform hover:scale-[1.02]"
-              disabled={loading || !acceptedTerms}
+              disabled={loading}
             >
               {loading ? (
                 <>

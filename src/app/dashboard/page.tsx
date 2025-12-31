@@ -9,8 +9,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sidebar } from '@/components/custom/Sidebar';
-import { PLANS } from '@/lib/constants';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { PLANS, SUPPORT_EMAIL } from '@/lib/constants';
 import { 
   Sparkles, 
   Image as ImageIcon, 
@@ -21,7 +26,11 @@ import {
   Crown,
   Zap,
   Camera,
-  Loader2
+  Loader2,
+  HelpCircle,
+  Copy,
+  Check,
+  Shield
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -29,6 +38,7 @@ export default function DashboardPage() {
   const { t } = useLanguage();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [emailCopied, setEmailCopied] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -53,6 +63,17 @@ export default function DashboardPage() {
 
   const currentPlan = PLANS[profile.plan_type];
   const usagePercentage = ((profile.images_total - profile.images_remaining) / profile.images_total) * 100;
+
+  const handleLogout = async () => {
+    await signOut();
+    router.push('/auth/login');
+  };
+
+  const handleCopyEmail = () => {
+    navigator.clipboard.writeText(SUPPORT_EMAIL);
+    setEmailCopied(true);
+    setTimeout(() => setEmailCopied(false), 2000);
+  };
 
   const getPlanIcon = (planType: string) => {
     switch (planType) {
@@ -80,9 +101,67 @@ export default function DashboardPage() {
       <header className="bg-white/10 backdrop-blur-md border-b border-white/20">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <Sidebar showLogo={true} />
-            <div>
-              <p className="text-xs text-white/70 text-right">Beta</p>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center">
+                <Sparkles className="w-6 h-6 text-[#002f5c]" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-white">Fashion.ai</h1>
+                <p className="text-xs text-white/70">Beta</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              {/* Support Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-white hover:bg-white/10"
+                  >
+                    <HelpCircle className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80">
+                  <div className="p-4">
+                    <h3 className="font-semibold text-sm mb-3 text-gray-900">Suporte</h3>
+                    <div className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
+                      <div className="flex-1 mr-2">
+                        <p className="text-xs text-gray-500 mb-1">Email de suporte:</p>
+                        <p className="text-sm font-medium text-gray-900 break-all">{SUPPORT_EMAIL}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleCopyEmail}
+                        className="shrink-0"
+                      >
+                        {emailCopied ? (
+                          <>
+                            <Check className="w-4 h-4 mr-1" />
+                            Copiado
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4 mr-1" />
+                            Copiar
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Logout Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLogout}
+                className="text-white hover:bg-white/10"
+              >
+                <LogOut className="w-5 h-5" />
+              </Button>
             </div>
           </div>
         </div>
@@ -137,10 +216,14 @@ export default function DashboardPage() {
 
         {/* Main Actions */}
         <Tabs defaultValue="generate" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 bg-white/10 backdrop-blur-sm border border-white/20">
+          <TabsList className="grid w-full grid-cols-3 bg-white/10 backdrop-blur-sm border border-white/20">
             <TabsTrigger value="generate" className="data-[state=active]:bg-white data-[state=active]:text-[#002f5c]">
               <Camera className="w-4 h-4 mr-2" />
               Gerar
+            </TabsTrigger>
+            <TabsTrigger value="photos" className="data-[state=active]:bg-white data-[state=active]:text-[#002f5c]">
+              <Upload className="w-4 h-4 mr-2" />
+              Fotos
             </TabsTrigger>
             <TabsTrigger value="gallery" className="data-[state=active]:bg-white data-[state=active]:text-[#002f5c]">
               <ImageIcon className="w-4 h-4 mr-2" />
@@ -156,7 +239,7 @@ export default function DashboardPage() {
                   Faça upload de uma roupa e veja como ficaria em você
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <Button 
                   className="w-full bg-gradient-to-r from-[#002f5c] to-[#004080] hover:from-[#003d6b] hover:to-[#005099] py-8 text-lg"
                   onClick={() => router.push('/generate')}
@@ -165,11 +248,62 @@ export default function DashboardPage() {
                   <Sparkles className="w-6 h-6 mr-2" />
                   Começar Geração
                 </Button>
+                
+                {/* Privacy Notice */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <Shield className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                    <div className="text-sm text-gray-700">
+                      <p className="font-semibold text-blue-900 mb-1">Sua privacidade é prioridade</p>
+                      <p className="text-xs leading-relaxed">
+                        Ao subir sua foto, você autoriza o processamento exclusivo para o provador virtual. 
+                        Suas imagens são processadas de forma segura e deletadas automaticamente dos nossos 
+                        servidores após a geração do look. Não armazenamos seus dados biométricos.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {profile.images_remaining + profile.bonus_credits <= 0 && (
                   <p className="text-sm text-red-500 text-center mt-4">
                     Você não tem imagens disponíveis. Faça upgrade do seu plano!
                   </p>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="photos">
+            <Card className="bg-white/95 backdrop-blur-sm border-0 shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-[#002f5c]">Minhas Fotos</CardTitle>
+                <CardDescription>
+                  Gerencie suas 3 fotos de corpo inteiro (atualizável 1x por semana)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button 
+                  className="w-full bg-gradient-to-r from-[#002f5c] to-[#004080] hover:from-[#003d6b] hover:to-[#005099] py-6"
+                  onClick={() => router.push('/photos')}
+                >
+                  <Upload className="w-5 h-5 mr-2" />
+                  Gerenciar Fotos
+                </Button>
+
+                {/* Privacy Notice */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <Shield className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                    <div className="text-sm text-gray-700">
+                      <p className="font-semibold text-blue-900 mb-1">Sua privacidade é prioridade</p>
+                      <p className="text-xs leading-relaxed">
+                        Ao subir sua foto, você autoriza o processamento exclusivo para o provador virtual. 
+                        Suas imagens são processadas de forma segura e deletadas automaticamente dos nossos 
+                        servidores após a geração do look. Não armazenamos seus dados biométricos.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

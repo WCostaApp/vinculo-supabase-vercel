@@ -71,29 +71,32 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // PASSO 1: Buscar foto de perfil do usuário (FOTO A - foto de referência)
-    console.log('Buscando foto de perfil do usuário (FOTO A)...');
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('profile_photo_url')
-      .eq('id', userId)
-      .single();
+    // PASSO 1: Buscar foto de referência do usuário (FOTO A - corpo inteiro)
+    console.log('Buscando foto de referência do usuário (FOTO A)...');
+    const { data: referencePhotos, error: photosError } = await supabaseAdmin
+      .from('user_reference_photos')
+      .select('photo_url')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    if (userError) {
-      console.error('Erro ao buscar dados do usuário:', userError);
+    if (photosError) {
+      console.error('Erro ao buscar fotos de referência:', photosError);
     }
 
-    const userReferencePhoto = userData?.profile_photo_url;
+    const userReferencePhoto = referencePhotos && referencePhotos.length > 0 
+      ? referencePhotos[0].photo_url 
+      : null;
 
     if (!userReferencePhoto) {
-      console.error('Usuário não possui foto de perfil cadastrada');
+      console.error('Usuário não possui foto de referência cadastrada');
       return NextResponse.json(
-        { error: 'Você precisa adicionar uma foto de perfil primeiro. Vá no menu lateral e clique em "Trocar Foto de Perfil".' },
+        { error: 'Você precisa cadastrar uma foto de corpo inteiro primeiro. Vá em Perfil > Adicionar Foto de Referência.' },
         { status: 400 }
       );
     }
 
-    console.log('Foto de perfil encontrada (FOTO A):', userReferencePhoto.substring(0, 50) + '...');
+    console.log('Foto de referência encontrada (FOTO A):', userReferencePhoto);
 
     // PASSO 2: Upload da imagem de roupa (FOTO B) para o Supabase Storage
     const fileName = `clothing_${userId}_${Date.now()}.jpg`;
@@ -128,20 +131,17 @@ export async function POST(request: NextRequest) {
     console.log('Testando acessibilidade das URLs...');
     
     try {
-      // Para foto de perfil em base64, não precisamos testar URL
-      if (!userReferencePhoto.startsWith('data:')) {
-        const refResponse = await fetch(userReferencePhoto, { method: 'HEAD' });
-        console.log('Status foto referência:', refResponse.status, refResponse.statusText);
+      const [refResponse, clothingResponse] = await Promise.all([
+        fetch(userReferencePhoto, { method: 'HEAD' }),
+        fetch(clothingImageUrl, { method: 'HEAD' })
+      ]);
 
-        if (!refResponse.ok) {
-          throw new Error(`Foto de perfil não está acessível (Status: ${refResponse.status}). Tente fazer upload novamente da sua foto de perfil.`);
-        }
-      } else {
-        console.log('Foto de perfil está em formato base64 (OK)');
-      }
-
-      const clothingResponse = await fetch(clothingImageUrl, { method: 'HEAD' });
+      console.log('Status foto referência:', refResponse.status, refResponse.statusText);
       console.log('Status foto roupa:', clothingResponse.status, clothingResponse.statusText);
+
+      if (!refResponse.ok) {
+        throw new Error(`Foto de referência não está acessível (Status: ${refResponse.status}). Tente fazer upload novamente da sua foto de corpo inteiro.`);
+      }
 
       if (!clothingResponse.ok) {
         throw new Error(`Foto da roupa não está acessível (Status: ${clothingResponse.status}). Tente fazer upload novamente.`);
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
     // Usando os campos CORRETOS conforme documentação: human_image_url, garment_image_url, cloth_type
     console.log('Chamando API da Fal.ai (cat-vton) para Virtual Try-On...');
     console.log('Parâmetros enviados:', {
-      human_image_url: userReferencePhoto.startsWith('data:') ? 'base64 image' : userReferencePhoto,
+      human_image_url: userReferencePhoto,
       garment_image_url: clothingImageUrl,
       cloth_type: clothType
     });
@@ -324,7 +324,7 @@ export async function POST(request: NextRequest) {
         image: generatedImage,
         publicUrl: finalImageUrl,
         usedReferencePhoto: true,
-        referencePhotoUrl: userReferencePhoto.startsWith('data:') ? 'base64 image' : userReferencePhoto,
+        referencePhotoUrl: userReferencePhoto,
         clothingPhotoUrl: clothingImageUrl
       });
 
@@ -356,7 +356,7 @@ export async function POST(request: NextRequest) {
       let errorMessage = 'Erro ao processar imagem com IA';
       
       if (falError.message?.includes('Unprocessable Entity') || falError.message?.includes('422')) {
-        errorMessage = `A API não conseguiu processar as imagens. Verifique se: (1) Sua foto de perfil está clara e mostra o corpo inteiro, (2) A foto da roupa está em boa qualidade, (3) Ambas as imagens estão em formato JPG/PNG válido.${errorDetails}`;
+        errorMessage = `A API não conseguiu processar as imagens. Verifique se: (1) Sua foto de referência está clara e mostra o corpo inteiro, (2) A foto da roupa está em boa qualidade, (3) Ambas as imagens estão em formato JPG/PNG válido.${errorDetails}`;
       } else if (falError.message?.includes('Invalid API key') || falError.message?.includes('401')) {
         errorMessage = 'Chave da API Fal.ai inválida. Verifique a configuração da FAL_KEY.';
       } else if (falError.message?.includes('quota') || falError.message?.includes('429')) {

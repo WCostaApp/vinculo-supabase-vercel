@@ -1,219 +1,157 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  validateWebhookSignature, 
-  processReferralCommission,
-  kirvanoConfig,
-  type KirvanoWebhookPayload 
-} from '@/lib/kirvano';
+import { supabase } from '@/lib/supabase';
 
-/**
- * Webhook da Kirvano
- * 
- * Este endpoint recebe notificações da Kirvano sobre:
- * - Compras completadas
- * - Assinaturas criadas/canceladas
- * - Reembolsos processados
- * - Comissões de afiliados
- * 
- * URL do webhook: https://seu-dominio.com/api/webhooks/kirvano
- */
+// Tipos de eventos da Kirvano
+type KirvanoEventType = 
+  | 'payment.approved' 
+  | 'payment.pending' 
+  | 'payment.cancelled' 
+  | 'subscription.created'
+  | 'subscription.cancelled';
+
+interface KirvanoWebhookPayload {
+  event: KirvanoEventType;
+  data: {
+    payment_id: string;
+    customer_email: string;
+    customer_id?: string;
+    amount: number;
+    status: 'approved' | 'pending' | 'cancelled';
+    plan_type?: 'basic' | 'fashion' | 'super';
+    metadata?: {
+      user_id?: string;
+      referral_code?: string;
+    };
+  };
+  created_at: string;
+}
+
+// Créditos de bônus por plano
+const REFERRAL_BONUS_CREDITS: Record<string, number> = {
+  basic: 10,    // 10 créditos por indicação de plano básico
+  fashion: 25,  // 25 créditos por indicação de plano fashion
+  super: 50,    // 50 créditos por indicação de plano super
+};
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Obter o payload do webhook
-    const rawBody = await request.text();
-    const payload: KirvanoWebhookPayload = JSON.parse(rawBody);
+    const payload: KirvanoWebhookPayload = await request.json();
 
-    // 2. Validar assinatura do webhook (segurança)
-    const signature = request.headers.get('x-kirvano-signature') || '';
-    const isValid = validateWebhookSignature(
-      rawBody,
-      signature,
-      kirvanoConfig.apiSecret
-    );
+    console.log('Webhook Kirvano recebido:', payload);
 
-    if (!isValid) {
-      console.error('Assinatura inválida do webhook Kirvano');
-      return NextResponse.json(
-        { error: 'Assinatura inválida' },
-        { status: 401 }
-      );
+    // Verificar se é um evento de pagamento aprovado
+    if (payload.event === 'payment.approved' && payload.data.status === 'approved') {
+      const { customer_email, plan_type, metadata } = payload.data;
+
+      // Buscar o usuário pelo email
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', customer_email)
+        .single();
+
+      if (userError || !user) {
+        console.error('Usuário não encontrado:', customer_email);
+        return NextResponse.json(
+          { error: 'Usuário não encontrado' },
+          { status: 404 }
+        );
+      }
+
+      // Atualizar o plano do usuário
+      if (plan_type) {
+        const imagesPerPlan = {
+          basic: 30,
+          fashion: 100,
+          super: 300,
+        };
+
+        await supabase
+          .from('users')
+          .update({
+            plan_type,
+            images_remaining: imagesPerPlan[plan_type],
+            images_total: imagesPerPlan[plan_type],
+            subscription_status: 'active',
+          })
+          .eq('id', user.id);
+      }
+
+      // Processar indicação se o usuário foi indicado por alguém
+      if (user.referred_by) {
+        // Buscar a indicação pendente
+        const { data: referral, error: referralError } = await supabase
+          .from('referrals')
+          .select('*')
+          .eq('referred_id', user.id)
+          .eq('status', 'pending')
+          .single();
+
+        if (!referralError && referral) {
+          // Buscar o usuário que fez a indicação
+          const { data: referrer, error: referrerError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', referral.referrer_id)
+            .single();
+
+          if (!referrerError && referrer) {
+            // Calcular créditos de bônus baseado no plano
+            const bonusCredits = REFERRAL_BONUS_CREDITS[plan_type || 'basic'] || 10;
+
+            // Adicionar créditos ao usuário que indicou
+            const newBonusCredits = (referrer.bonus_credits || 0) + bonusCredits;
+            const expiryDate = new Date();
+            expiryDate.setMonth(expiryDate.getMonth() + 6); // Créditos expiram em 6 meses
+
+            await supabase
+              .from('users')
+              .update({
+                bonus_credits: newBonusCredits,
+                bonus_credits_expiry: expiryDate.toISOString(),
+              })
+              .eq('id', referrer.id);
+
+            // Atualizar status da indicação para 'completed'
+            await supabase
+              .from('referrals')
+              .update({
+                status: 'completed',
+                completed_at: new Date().toISOString(),
+              })
+              .eq('id', referral.id);
+
+            console.log(`✅ Indicação completada! ${referrer.email} recebeu ${bonusCredits} créditos`);
+          }
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Pagamento processado com sucesso',
+      });
     }
 
-    // 3. Processar evento baseado no tipo
-    console.log(`Webhook Kirvano recebido: ${payload.event}`, payload.data);
-
-    switch (payload.event) {
-      case 'purchase.completed':
-        await handlePurchaseCompleted(payload);
-        break;
-
-      case 'subscription.created':
-        await handleSubscriptionCreated(payload);
-        break;
-
-      case 'subscription.cancelled':
-        await handleSubscriptionCancelled(payload);
-        break;
-
-      case 'refund.processed':
-        await handleRefundProcessed(payload);
-        break;
-
-      default:
-        console.warn(`Evento desconhecido: ${payload.event}`);
-    }
-
-    // 4. Retornar sucesso para a Kirvano
-    return NextResponse.json({ 
+    // Outros eventos podem ser tratados aqui
+    return NextResponse.json({
       success: true,
-      message: 'Webhook processado com sucesso' 
+      message: 'Evento recebido',
     });
 
   } catch (error) {
     console.error('Erro ao processar webhook Kirvano:', error);
     return NextResponse.json(
-      { 
-        error: 'Erro ao processar webhook',
-        details: error instanceof Error ? error.message : 'Erro desconhecido'
-      },
+      { error: 'Erro ao processar webhook' },
       { status: 500 }
     );
   }
 }
 
-/**
- * Processa compra completada
- */
-async function handlePurchaseCompleted(payload: KirvanoWebhookPayload) {
-  const { data } = payload;
-
-  console.log('Compra completada:', {
-    transactionId: data.transactionId,
-    customer: data.customerEmail,
-    product: data.productName,
-    amount: data.amount,
-  });
-
-  // Se houver código de indicação, processar comissão
-  if (data.referralCode && data.affiliateId) {
-    const result = await processReferralCommission(
-      data.affiliateId,
-      data.amount,
-      data.transactionId
-    );
-
-    if (result.success) {
-      console.log(`Comissão de R$ ${result.commission.toFixed(2)} creditada ao afiliado ${data.affiliateId}`);
-    } else {
-      console.error('Erro ao processar comissão:', result.error);
-    }
-  }
-
-  // Aqui você pode:
-  // 1. Atualizar créditos do usuário no banco de dados
-  // 2. Enviar email de confirmação
-  // 3. Ativar plano premium
-  // 4. Registrar transação no histórico
-  
-  // Exemplo com Supabase (descomente e ajuste):
-  /*
-  const { createClient } = require('@supabase/supabase-js');
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-
-  await supabase.from('transactions').insert({
-    transaction_id: data.transactionId,
-    customer_email: data.customerEmail,
-    product_id: data.productId,
-    amount: data.amount,
-    status: 'completed',
-    referral_code: data.referralCode,
-    created_at: new Date().toISOString(),
-  });
-
-  // Atualizar créditos do usuário
-  await supabase.rpc('add_user_credits', {
-    user_email: data.customerEmail,
-    credits_to_add: getCreditsForProduct(data.productId),
-  });
-  */
-}
-
-/**
- * Processa criação de assinatura
- */
-async function handleSubscriptionCreated(payload: KirvanoWebhookPayload) {
-  const { data } = payload;
-
-  console.log('Assinatura criada:', {
-    customer: data.customerEmail,
-    product: data.productName,
-  });
-
-  // Aqui você pode:
-  // 1. Ativar plano recorrente do usuário
-  // 2. Configurar renovação automática
-  // 3. Enviar email de boas-vindas
-  // 4. Adicionar créditos mensais
-}
-
-/**
- * Processa cancelamento de assinatura
- */
-async function handleSubscriptionCancelled(payload: KirvanoWebhookPayload) {
-  const { data } = payload;
-
-  console.log('Assinatura cancelada:', {
-    customer: data.customerEmail,
-    product: data.productName,
-  });
-
-  // Aqui você pode:
-  // 1. Desativar renovação automática
-  // 2. Manter acesso até o fim do período pago
-  // 3. Enviar email de feedback
-  // 4. Registrar motivo do cancelamento
-}
-
-/**
- * Processa reembolso
- */
-async function handleRefundProcessed(payload: KirvanoWebhookPayload) {
-  const { data } = payload;
-
-  console.log('Reembolso processado:', {
-    transactionId: data.transactionId,
-    customer: data.customerEmail,
-    amount: data.amount,
-  });
-
-  // Aqui você pode:
-  // 1. Remover créditos do usuário
-  // 2. Desativar plano premium
-  // 3. Reverter comissão de afiliado (se aplicável)
-  // 4. Enviar email de confirmação
-}
-
-/**
- * Helper: Mapeia produto para quantidade de créditos
- */
-function getCreditsForProduct(productId: string): number {
-  const creditsMap: Record<string, number> = {
-    'basic-model': 30,
-    'fashion-model': 100,
-    'super-model': 300,
-  };
-
-  return creditsMap[productId] || 0;
-}
-
-// Permitir apenas POST
+// Método GET para verificar se o webhook está funcionando
 export async function GET() {
-  return NextResponse.json(
-    { error: 'Método não permitido' },
-    { status: 405 }
-  );
+  return NextResponse.json({
+    status: 'ok',
+    message: 'Webhook Kirvano está funcionando',
+    timestamp: new Date().toISOString(),
+  });
 }

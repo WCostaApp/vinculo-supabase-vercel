@@ -15,13 +15,12 @@ import {
   Shirt,
   Footprints,
   Layers,
-  ShoppingBag,
-  Shield
+  ShoppingBag
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { supabase } from '@/lib/supabase';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Sidebar } from '@/components/custom/Sidebar';
 
 // Tipos de roupa aceitos pela API Fal.ai
 type ClothType = 'upper' | 'lower' | 'overall' | 'outer';
@@ -227,7 +226,7 @@ export default function GeneratePage() {
 
       console.log('Enviando requisição para API com cloth_type:', clothType);
 
-      // Chamar API route - imagem NÃO será armazenada no Supabase
+      // Chamar API route que usa Service Role Key (bypassa RLS)
       const response = await fetch('/api/generate-image', {
         method: 'POST',
         body: formData
@@ -256,14 +255,22 @@ export default function GeneratePage() {
       {/* Header */}
       <header className="bg-white/10 backdrop-blur-md border-b border-white/20">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push('/dashboard')}
+              className="text-white hover:bg-white/10"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
             <div className="flex items-center space-x-3">
-              <Sidebar showLogo={true} />
-            </div>
-            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center">
+                <Sparkles className="w-6 h-6 text-[#002f5c]" />
+              </div>
               <div>
-                <h1 className="text-xl font-bold text-white text-right">Gerar Nova Imagem</h1>
-                <p className="text-xs text-white/70 text-right">
+                <h1 className="text-xl font-bold text-white">Gerar Nova Imagem</h1>
+                <p className="text-xs text-white/70">
                   Créditos: {profile.images_remaining + profile.bonus_credits}
                 </p>
               </div>
@@ -279,23 +286,6 @@ export default function GeneratePage() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-
-        {/* Privacy Notice */}
-        <Card className="mb-6 bg-green-500/20 backdrop-blur-sm border-green-400/30">
-          <CardContent className="pt-6">
-            <div className="flex items-start space-x-3">
-              <Shield className="w-5 h-5 text-green-300 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-white">
-                <p className="font-semibold mb-2">Sua privacidade é prioridade:</p>
-                <p className="text-white/90">
-                  Suas imagens são processadas localmente no seu navegador e enviadas diretamente 
-                  para a API de geração. <strong>Nenhuma foto é armazenada no nosso banco de dados.</strong> Após 
-                  o processamento, as imagens são automaticamente deletadas.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         <Card className="bg-white/95 backdrop-blur-sm border-0 shadow-2xl">
           <CardHeader>
@@ -350,15 +340,9 @@ export default function GeneratePage() {
                       <p className="text-lg font-semibold text-[#002f5c]">
                         Clique para fazer upload
                       </p>
-                      <p className="text-sm text-gray-500 mb-3">
+                      <p className="text-sm text-gray-500">
                         PNG, JPG ou JPEG (será otimizado automaticamente)
                       </p>
-                      <div className="flex items-start justify-center space-x-2 text-xs text-gray-600 max-w-md mx-auto">
-                        <Shield className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                        <p className="text-left">
-                          <span className="font-semibold">Processamento local:</span> Sua imagem é processada no navegador e enviada diretamente para geração. Não armazenamos suas fotos.
-                        </p>
-                      </div>
                     </div>
                   </>
                 )}
